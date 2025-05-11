@@ -227,6 +227,21 @@ LZ4_attach_HC_dictionary(LZ4_streamHC_t *working_stream,
 #define LZ4HC_HASHTABLESIZE (1 << LZ4HC_HASH_LOG)
 #define LZ4HC_HASH_MASK (LZ4HC_HASHTABLESIZE - 1)
 
+#ifndef LZ4_OPT_NUM
+#define LZ4_OPT_NUM (1 << 12)
+#endif
+
+#ifndef TRAILING_LITERALS
+#define TRAILING_LITERALS 3
+#endif
+
+typedef struct {
+	int price;
+	int off;
+	int mlen;
+	int litlen;
+} LZ4HC_optimal_t;
+
 /* Never ever use these definitions directly !
  * Declare or allocate an LZ4_streamHC_t instead.
 **/
@@ -245,6 +260,7 @@ struct LZ4HC_CCtx_internal {
                                 otherwise, favor compression ratio */
 	LZ4_i8 dirty; /* stream has to be fully reset if this flag is set */
 	const LZ4HC_CCtx_internal *dictCtx;
+	LZ4HC_optimal_t opt[LZ4_OPT_NUM + TRAILING_LITERALS]; /* moved from stack to here */
 };
 
 #define LZ4_STREAMHC_MINSIZE                                                   \

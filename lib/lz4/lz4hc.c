@@ -68,7 +68,6 @@ typedef enum { noDictCtx, usingDictCtxHc } dictCtx_directive;
 
 /*===   Constants   ===*/
 #define OPTIMAL_ML (int)((ML_MASK - 1) + MINMATCH)
-#define LZ4_OPT_NUM (1 << 12)
 
 /*===   Macros   ===*/
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -2256,12 +2255,6 @@ EXPORT_SYMBOL(LZ4_saveDictHC);
 /* ================================================
  *  LZ4 Optimal parser (levels [LZ4HC_CLEVEL_OPT_MIN - LZ4HC_CLEVEL_MAX])
  * ===============================================*/
-typedef struct {
-	int price;
-	int off;
-	int mlen;
-	int litlen;
-} LZ4HC_optimal_t;
 
 /* price in bytes */
 LZ4_FORCE_INLINE int LZ4HC_literalsPrice(int const litlen)
@@ -2320,16 +2313,7 @@ static int LZ4HC_compress_optimal(LZ4HC_CCtx_internal *ctx,
 				  const HCfavor_e favorDecSpeed)
 {
 	int retval = 0;
-#define TRAILING_LITERALS 3
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
-	LZ4HC_optimal_t *const opt = (LZ4HC_optimal_t *)ALLOC(
-		sizeof(LZ4HC_optimal_t) * (LZ4_OPT_NUM + TRAILING_LITERALS));
-#else
-	LZ4HC_optimal_t
-		opt[LZ4_OPT_NUM +
-		    TRAILING_LITERALS]; /* ~64 KB, which is a bit large for stack... */
-#endif
-
+	LZ4HC_optimal_t *const opt = ctx->opt;
 	const BYTE *ip = (const BYTE *)source;
 	const BYTE *anchor = ip;
 	const BYTE *const iend = ip + *srcSizePtr;
@@ -2342,10 +2326,6 @@ static int LZ4HC_compress_optimal(LZ4HC_CCtx_internal *ctx,
 	int ovoff = 0;
 
 	/* init */
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
-	if (opt == NULL)
-		goto _return_label;
-#endif
 	DEBUGLOG(5, "LZ4HC_compress_optimal(dst=%p, dstCapa=%u)", dst,
 		 (unsigned)dstCapacity);
 	*srcSizePtr = 0;
@@ -2734,10 +2714,6 @@ _dest_overflow:
 		goto _last_literals;
 	}
 _return_label:
-#if defined(LZ4HC_HEAPMODE) && LZ4HC_HEAPMODE == 1
-	if (opt)
-		FREEMEM(opt);
-#endif
 	return retval;
 }
 
