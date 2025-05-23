@@ -2,7 +2,6 @@
 #ifndef __ASM_MMAN_H__
 #define __ASM_MMAN_H__
 
-#include <linux/fs.h>
 #include <uapi/asm/mman.h>
 
 /* PARISC cannot allow mdwe as it needs writable stacks */
@@ -12,7 +11,7 @@ static inline bool arch_memory_deny_write_exec_supported(void)
 }
 #define arch_memory_deny_write_exec_supported arch_memory_deny_write_exec_supported
 
-static inline unsigned long arch_calc_vm_flag_bits(struct file *file, unsigned long flags)
+static inline unsigned long arch_calc_vm_flag_bits(unsigned long flags)
 {
 	/*
 	 * The stack on parisc grows upwards, so if userspace requests memory
@@ -24,6 +23,6 @@ static inline unsigned long arch_calc_vm_flag_bits(struct file *file, unsigned l
 
 	return 0;
 }
-#define arch_calc_vm_flag_bits(file, flags) arch_calc_vm_flag_bits(file, flags)
+#define arch_calc_vm_flag_bits(flags) arch_calc_vm_flag_bits(flags)
 
 #endif /* __ASM_MMAN_H__ */
