@@ -15,6 +15,7 @@
 #define SLIM_FREQ_GOV_DIR       "slim_freq_gov"
 #define LOAD_TRACK_DIR          "slim_walt"
 #define HMBIRD_PROC_PERMISSION  0666
+#define MAX_GLOBAL_DSQS	(10)
 
 int scx_enable;
 int partial_enable;
@@ -48,6 +49,118 @@ int save_gov;
 unsigned int cpu_cluster_masks;
 
 char saved_gov[NR_CPUS][16];
+
+enum stat_items {
+	GLOBAL_STAT,
+	CPU_ALLOW_FAIL,
+	RT_CNT,
+	KEY_TASK_CNT,
+	SWITCH_IDX,
+	TIMEOUT_CNT,
+
+	TOTAL_DSP_CNT,
+	MOVE_RQ_CNT,
+
+	DWORD_STAT_END = MOVE_RQ_CNT,
+
+	GDSQ_CNT,
+	ERR_IDX,
+	PCP_TIMEOUT_CNT,
+	PCP_LDSQ_CNT,
+	PCP_ENQL_CNT,
+
+	MAX_ITEMS,
+};
+
+static char *stats_str[MAX_ITEMS] = {
+	"global stat", "cpu_allow_fail", "rt_cnt", "key_task_cnt",
+	"switch_idx", "timeout_cnt", "total_dsp_cnt", "move_rq_cnt",
+	"gdsq_cnt", "err_idx", "pcp_timeout_cnt", "pcp_ldsq_cnt",
+	"pcp_enql_cnt"
+};
+
+struct stats_struct {
+	u64 global_stat[2];
+	u64 cpu_allow_fail[2];
+	u64 rt_cnt[2];
+	u64 key_task_cnt[2];
+	u64 switch_idx[2];
+	u64 timeout_cnt[2];
+
+	/* for compatible, only use [0] */
+	u64 total_dsp_cnt[2];
+	u64 move_rq_cnt[2];
+
+	u64 gdsq_count[MAX_GLOBAL_DSQS][2];
+	u64 err_idx[5];
+	u64 pcp_timeout_cnt[NR_CPUS];
+	u64 pcp_ldsq_count[NR_CPUS][2];
+	u64 pcp_enql_cnt[NR_CPUS];
+} stats_data;
+
+void stats_print(char *buf, int len)
+{
+	int idx = 0, j, ret;
+	int item = 0;
+	u64 *pval;
+	u64 *pbase = (u64*)&stats_data;
+
+	for (item = 0; item < MAX_ITEMS; item++) {
+		if (item <= DWORD_STAT_END) {
+			pval = pbase + item * 2;
+			ret = snprintf(&buf[idx], len - idx, "%s:%llu, %llu\n",
+					stats_str[item], pval[0],  pval[1]);
+			if (ret < 0 || ret >= len - idx)
+				return;
+			idx += ret;
+		} else if (GDSQ_CNT == item) {
+			for (j = 0; j < MAX_GLOBAL_DSQS; j++) {
+				pval = (u64*)&stats_data.gdsq_count[j];
+				ret = snprintf(&buf[idx], len - idx, "%s[%d]:%llu, %llu\n",
+						stats_str[item], j, pval[0], pval[1]);
+				if (ret < 0 || ret >= len - idx)
+					return;
+				idx += ret;
+			}
+		} else if (ERR_IDX == item) {
+			pval = (u64*)&stats_data.err_idx;
+			ret = snprintf(&buf[idx], len - idx, "%s:%llu, %llu, %llu, %llu,"
+						"%llu\n", stats_str[item], pval[0],
+						pval[1], pval[2], pval[3], pval[4]);
+			if (ret < 0 || ret >= len - idx)
+				return;
+			idx += ret;
+		} else if (PCP_TIMEOUT_CNT == item) {
+			for (j = 0; j < nr_cpu_ids; j++) {
+				pval = (u64*)&stats_data.pcp_timeout_cnt[j];
+				ret = snprintf(&buf[idx], len - idx, "%s[%d]:%llu\n",
+							stats_str[item], j, *pval);
+				if (ret < 0 || ret >= len - idx)
+					return;
+				idx += ret;
+			}
+		} else if (PCP_LDSQ_CNT == item) {
+			for (j = 0; j < nr_cpu_ids; j++) {
+				pval = (u64*)&stats_data.pcp_ldsq_count[j];
+				ret = snprintf(&buf[idx], len - idx, "%s[%d]:%llu,%llu\n",
+						stats_str[item], j, pval[0], pval[1]);
+				if (ret < 0 || ret >= len - idx)
+					return;
+				idx += ret;
+			}
+		} else if (PCP_ENQL_CNT == item) {
+			for (j = 0; j < nr_cpu_ids; j++) {
+				pval = (u64*)&stats_data.pcp_enql_cnt[j];
+				ret = snprintf(&buf[idx], len - idx, "%s[%d]:%llu\n",
+						stats_str[item], j, *pval);
+				if (ret < 0 || ret >= len - idx)
+					return;
+				idx += ret;
+			}
+		}
+	}
+	buf[idx] = '\0';
+}
 
 static int set_proc_buf_val(struct file *file, const char __user *buf, size_t count, int *val)
 {
@@ -117,6 +230,7 @@ static int hmbird_stats_proc_show(struct seq_file *m, void *v)
 {
 	char buf[MAX_STATS_BUF] = {0};
 
+	stats_print(buf, MAX_STATS_BUF); 
 	seq_printf(m, "%s\n", buf);
 	return 0;
 }
