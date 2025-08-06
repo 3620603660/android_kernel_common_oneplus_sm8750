@@ -61,7 +61,9 @@ enum stat_items {
 	TOTAL_DSP_CNT,
 	MOVE_RQ_CNT,
 
-	DWORD_STAT_END = MOVE_RQ_CNT,
+	SELECT_CPU_CNT,
+
+	DWORD_STAT_END = SELECT_CPU_CNT,
 
 	GDSQ_CNT,
 	ERR_IDX,
@@ -75,8 +77,8 @@ enum stat_items {
 static char *stats_str[MAX_ITEMS] = {
 	"global stat", "cpu_allow_fail", "rt_cnt", "key_task_cnt",
 	"switch_idx", "timeout_cnt", "total_dsp_cnt", "move_rq_cnt",
-	"gdsq_cnt", "err_idx", "pcp_timeout_cnt", "pcp_ldsq_cnt",
-	"pcp_enql_cnt"
+	"select_cpu", "gdsq_cnt", "err_idx", "pcp_timeout_cnt",
+	"pcp_ldsq_cnt","pcp_enql_cnt"
 };
 
 struct stats_struct {
@@ -90,6 +92,8 @@ struct stats_struct {
 	/* for compatible, only use [0] */
 	u64 total_dsp_cnt[2];
 	u64 move_rq_cnt[2];
+
+	u64 select_cpu[2];
 
 	u64 gdsq_count[MAX_GLOBAL_DSQS][2];
 	u64 err_idx[5];
