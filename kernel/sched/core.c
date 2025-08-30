@@ -1052,10 +1052,11 @@ void wake_up_q(struct wake_q_head *head)
 		struct task_struct *task;
 
 		task = container_of(node, struct task_struct, wake_q);
-		/* Task can safely be re-inserted now: */
 		node = node->next;
-		task->wake_q.next = NULL;
 		task->wake_q_count = head->count;
+		/* pairs with cmpxchg_relaxed() in __wake_q_add() */
+		WRITE_ONCE(task->wake_q.next, NULL);
+		/* Task can safely be re-inserted now. */
 
 		/*
 		 * wake_up_process() executes a full barrier, which pairs with
@@ -5887,8 +5888,8 @@ void scheduler_tick(void)
 		trigger_load_balance(rq);
 	}
 #endif
-	trace_android_vh_scheduler_tick(rq);
 
+	trace_android_vh_scheduler_tick(rq);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
@@ -7758,6 +7759,14 @@ static void __setscheduler_params(struct task_struct *p,
 		__setparam_dl(p, attr);
 	else if (fair_policy(policy))
 		p->static_prio = NICE_TO_PRIO(attr->sched_nice);
+
+	/* rt-policy tasks do not have a timerslack */
+	if (task_is_realtime(p)) {
+		p->timer_slack_ns = 0;
+	} else if (p->timer_slack_ns == 0) {
+		/* when switching back to non-rt policy, restore timerslack */
+		p->timer_slack_ns = p->default_timer_slack_ns;
+	}
 
 	/*
 	 * __sched_setscheduler() ensures attr->sched_priority == 0 when
@@ -10757,7 +10766,7 @@ void sched_release_group(struct task_group *tg)
 	spin_unlock_irqrestore(&task_group_lock, flags);
 }
 
-static struct task_group *sched_get_task_group(struct task_struct *tsk)
+static void sched_change_group(struct task_struct *tsk)
 {
 	struct task_group *tg;
 
@@ -10769,13 +10778,7 @@ static struct task_group *sched_get_task_group(struct task_struct *tsk)
 	tg = container_of(task_css_check(tsk, cpu_cgrp_id, true),
 			  struct task_group, css);
 	tg = autogroup_task_group(tsk, tg);
-
-	return tg;
-}
-
-static void sched_change_group(struct task_struct *tsk, struct task_group *group)
-{
-	tsk->sched_task_group = group;
+	tsk->sched_task_group = tg;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	if (tsk->sched_class->task_change_group)
@@ -10794,25 +10797,16 @@ static void sched_change_group(struct task_struct *tsk, struct task_group *group
  */
 void sched_move_task(struct task_struct *tsk)
 {
-	struct task_group *group;
 	struct rq_flags rf;
 	struct rq *rq;
 
 	trace_android_vh_sched_move_task(tsk);
 	rq = task_rq_lock(tsk, &rf);
-	/*
-	 * Esp. with SCHED_AUTOGROUP enabled it is possible to get superfluous
-	 * group changes.
-	 */
-	group = sched_get_task_group(tsk);
-	if (group == tsk->sched_task_group)
-		goto unlock;
-
 	update_rq_clock(rq);
 
 	SCHED_CHANGE_BLOCK(rq, tsk,
 			   DEQUEUE_SAVE | DEQUEUE_MOVE | DEQUEUE_NOCLOCK) {
-		sched_change_group(tsk, group);
+		sched_change_group(tsk);
 	}
 
 	/*
@@ -10823,7 +10817,6 @@ void sched_move_task(struct task_struct *tsk)
 	if (task_current(rq, tsk))
 		resched_curr(rq);
 
-unlock:
 	task_rq_unlock(rq, tsk, &rf);
 }
 
