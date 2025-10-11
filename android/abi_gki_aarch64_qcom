@@ -226,6 +226,7 @@
   cpu_irqtime
   cpu_latency_qos_add_request
   cpu_latency_qos_remove_request
+  cpu_latency_qos_request_active
   cpu_latency_qos_update_request
   cpumask_any_and_distribute
   cpu_number
@@ -492,6 +493,7 @@
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
+  dma_alloc_noncontiguous
   dma_alloc_pages
   dma_async_device_register
   dma_async_device_unregister
@@ -516,6 +518,7 @@
   dma_fence_signal
   dma_fence_signal_timestamp_locked
   dma_free_attrs
+  dma_free_noncontiguous
   dma_free_pages
   dma_get_sgtable_attrs
   dma_get_slave_channel
@@ -547,6 +550,8 @@
   dma_unmap_page_attrs
   dma_unmap_resource
   dma_unmap_sg_attrs
+  dma_vmap_noncontiguous
+  dma_vunmap_noncontiguous
   do_trace_netlink_extack
   double_rq_lock
   down
@@ -662,6 +667,7 @@
   extcon_get_property
   extcon_get_state
   extcon_register_notifier
+  extcon_set_property_capability
   extcon_set_state
   extcon_set_state_sync
   fasync_helper
@@ -1180,12 +1186,15 @@
   mmc_cqe_request_done
   mmc_execute_tuning
   mmc_hs200_tuning
+  __mmc_poll_for_busy
+  mmc_prepare_busy_cmd
   mmc_issue_type
   mmc_of_parse
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
   mmc_retune_hold
+  mmc_retune_release
   mmc_select_bus_width
   mmc_select_card
   mmc_select_hs
@@ -2448,6 +2457,7 @@
   __xa_alloc
   __xa_alloc_cyclic
   xa_destroy
+  __xa_erase
   xa_erase
   xa_find
   xa_find_after

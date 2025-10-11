@@ -6,6 +6,7 @@
 #if !defined(_TRACE_HOOK_MMC_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MMC_H
 #include <trace/hooks/vendor_hooks.h>
+struct blk_mq_queue_data;
 struct mmc_host;
 struct mmc_card;
 struct mmc_queue;

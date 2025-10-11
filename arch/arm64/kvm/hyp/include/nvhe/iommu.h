@@ -6,7 +6,6 @@
 
 #include <kvm/iommu.h>
 #include <linux/io-pgtable.h>
-#include <nvhe/spinlock.h>
 
 #if IS_ENABLED(CONFIG_ARM_SMMU_V3_PKVM)
 #include <linux/io-pgtable-arm.h>
@@ -40,9 +39,9 @@ int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 			 u32 endpoint_id, u32 pasid, u32 pasid_bits);
 int kvm_iommu_detach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 			 u32 endpoint_id, u32 pasid);
-size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
-			   unsigned long iova, phys_addr_t paddr, size_t pgsize,
-			   size_t pgcount, int prot);
+int kvm_iommu_map_pages(pkvm_handle_t domain_id, unsigned long iova,
+			phys_addr_t paddr, size_t pgsize,
+			size_t pgcount, int prot, unsigned long *mapped);
 size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id,
 			     unsigned long iova, size_t pgsize, size_t pgcount);
 phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
@@ -72,28 +71,6 @@ struct kvm_iommu_paddr_cache {
 };
 
 void kvm_iommu_flush_unmap_cache(struct kvm_iommu_paddr_cache *cache);
-
-static inline hyp_spinlock_t *kvm_iommu_get_lock(struct kvm_hyp_iommu *iommu)
-{
-	/* See struct kvm_hyp_iommu */
-	BUILD_BUG_ON(sizeof(iommu->lock) != sizeof(hyp_spinlock_t));
-	return (hyp_spinlock_t *)(&iommu->lock);
-}
-
-static inline void kvm_iommu_lock_init(struct kvm_hyp_iommu *iommu)
-{
-	hyp_spin_lock_init(kvm_iommu_get_lock(iommu));
-}
-
-static inline void kvm_iommu_lock(struct kvm_hyp_iommu *iommu)
-{
-	hyp_spin_lock(kvm_iommu_get_lock(iommu));
-}
-
-static inline void kvm_iommu_unlock(struct kvm_hyp_iommu *iommu)
-{
-	hyp_spin_unlock(kvm_iommu_get_lock(iommu));
-}
 
 /**
  * struct kvm_iommu_ops - KVM iommu ops

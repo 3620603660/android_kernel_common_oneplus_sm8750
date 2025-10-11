@@ -25,6 +25,21 @@ enum Value {
 
 type Object = Vec<(String, Value)>;
 
+fn comma_sep<T>(
+    seq: &[T],
+    formatter: &mut Formatter<'_>,
+    f: impl Fn(&mut Formatter<'_>, &T) -> Result,
+) -> Result {
+    if let [ref rest @ .., ref last] = seq[..] {
+        for v in rest {
+            f(formatter, v)?;
+            formatter.write_str(",")?;
+        }
+        f(formatter, last)?;
+    }
+    Ok(())
+}
+
 /// Minimal "almost JSON" generator (e.g. no `null`s, no arrays, no escaping),
 /// enough for this purpose.
 impl Display for Value {
@@ -35,6 +50,9 @@ impl Display for Value {
             Value::String(string) => write!(formatter, "\"{}\"", string),
             Value::Object(object) => {
                 formatter.write_str("{")?;
+                comma_sep(&object[..], formatter, |formatter, v| {
+                    write!(formatter, "\"{}\": {}", v.0, v.1)
+                })?;
                 if let [ref rest @ .., ref last] = object[..] {
                     for (key, value) in rest {
                         write!(formatter, "\"{}\": {},", key, value)?;
@@ -44,6 +62,42 @@ impl Display for Value {
                 formatter.write_str("}")
             }
         }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Self::Boolean(value)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
+impl From<Object> for Value {
+    fn from(object: Object) -> Self {
+        Self::Object(object)
+    }
+}
+
+impl<T: Into<Value>, const N: usize> From<[T; N]> for Value {
+    fn from(i: [T; N]) -> Self {
+        Self::Array(i.into_iter().map(|v| v.into()).collect())
     }
 }
 
@@ -148,7 +202,22 @@ fn main() {
     let mut ts = TargetSpec::new();
 
     // `llvm-target`s are taken from `scripts/Makefile.clang`.
-    if cfg.has("X86_64") {
+    if cfg.has("ARM64") {
+        ts.push("arch", "aarch64");
+        ts.push(
+            "data-layout",
+            "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128",
+        );
+        ts.push("disable-redzone", true);
+        let mut features = "+v8a,+strict-align,-neon,-fp-armv8".to_string();
+        if cfg.has("SHADOW_CALL_STACK") {
+            features += ",+reserve-x18";
+        }
+        ts.push("features", features);
+        ts.push("llvm-target", "aarch64-linux-gnu");
+        ts.push("supported-sanitizers", ["kcfi"]);
+        ts.push("target-pointer-width", "64");
+    } else if cfg.has("X86_64") {
         ts.push("arch", "x86_64");
         ts.push(
             "data-layout",
